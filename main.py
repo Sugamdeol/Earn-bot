@@ -103,8 +103,8 @@ async def run_bot_cycle():
                     new_title = await page.title()
                     log(f"✅ Current Page Title: {new_title}")
                     
-                    log("🛑 Holding 30s...")
-                    await asyncio.sleep(30)
+                    log("🛑 Holding 10s...")
+                    await asyncio.sleep(10)
                     log("✅ Cycle Done!")
                     
                 except Exception as e:
