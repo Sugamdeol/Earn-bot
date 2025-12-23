@@ -1,144 +1,130 @@
-import os
-import time
-import threading
+
 import requests
 import asyncio
-from flask import Flask
-from playwright.async_api import async_playwright
+import random  # Random proxy choose karne ke liye
 from urllib.parse import urlparse, parse_qs
+from playwright.async_api import async_playwright
 
 # --- CONFIGURATION ---
-app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- HELPER: LOGGING (Taaki Render Logs mein turant dikhe) ---
-def log(message):
-    print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
+# --- PROXY LIST (Tractor ke naye khet) ---
+# Alag-alag proxy sites taaki block na ho
+PROXY_SITES = [
+    "https://www.croxyproxy.com",
+    "https://www.croxyproxy.rocks",
+    "https://www.blockaway.net",
+    "https://www.proxysite.com",
+    "https://www.hidemyass.com/en-in/proxy"
+]
 
-# --- PART 1: Token Logic ---
+# --- PART 1: Token Nikalna ---
 def get_final_link():
     try:
-        log("🔍 Token dhoondh raha hoon...")
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        r1 = requests.get(DEFAULT_URL, headers=headers, allow_redirects=False)
-        
-        if "location" not in r1.headers: 
-            log("❌ Redirect location nahi mili.")
-            return None
+        print("🔍 Token dhoondh raha hoon...")
+        r1 = requests.get(DEFAULT_URL, allow_redirects=False)
+        if "location" not in r1.headers: return None
         meverge_url = r1.headers["location"]
         
         parsed = urlparse(meverge_url)
         query = parse_qs(parsed.query)
-        
-        if "adlinkfly" not in query:
-            log("❌ adlinkfly parameter nahi mila.")
-            return None
-
         adlink_data = query["adlinkfly"][0]
         token = adlink_data.split("Q0gNBbrR?")[1]
         
         return f"https://shortxlinks.com/Q0gNBbrR?{token}"
     except Exception as e:
-        log(f"❌ Token Error: {e}")
+        print(f"❌ Token Error: {e}")
         return None
 
-# --- PART 2: Async Bot Logic (Jasoosi Mode) ---
-async def run_bot_cycle():
-    log("\n--- 🎬 New Cycle Start ---")
+# --- PART 2: Async Playwright Logic ---
+async def run_cycle():
+    print("\n--- 🎬 New Cycle Start ---")
     
+    # 1. Link Generate
     target_link = get_final_link()
+    if not target_link:
+        print("Link nahi bana. Skip.")
+        return
+
+    print(f"🔗 Target Link: {target_link}")
     
-    if target_link:
-        log(f"🔗 Target: {target_link}")
-        log("⏳ 1 Minute wait (Skipping for testing if needed)...")
-        # Testing ke liye 10 sec kar raha hu, production me 60 kar lena
-        await asyncio.sleep(60)
-        
-        log("🖥️ Starting Browser...")
-        try:
-            async with async_playwright() as p:
-                # Docker arguments
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                
-                log("🚀 Opening CroxyProxy...")
-                try:
-                    await page.goto("https://www.croxyproxy.com", timeout=90000)
-                    await page.wait_for_load_state("domcontentloaded")
-                    
-                    # DEBUG: Title check karo
-                    title = await page.title()
-                    log(f"✅ Website Khul Gayi! Title: {title}")
-                    
-                except Exception as e:
-                    log(f"❌ Proxy Site Load Fail: {e}")
-                    await browser.close()
-                    return
-
-                # Input Box logic
-                try:
-                    # Input box dhoondne ki koshish
-                    if await page.locator("#url").count() > 0:
-                        await page.fill("#url", target_link)
-                        log("✅ Input Box '#url' mil gaya.")
-                    elif await page.locator("#request").count() > 0:
-                        await page.fill("#request", target_link)
-                        log("✅ Input Box '#request' mil gaya.")
-                    else:
-                        log("⚠️ Input box nahi mila! Page content check kar raha hu...")
-                        # Agar fail ho, toh thoda HTML print karo taaki pata chale kya khula hai
-                        content = await page.content()
-                        log(f"DEBUG HTML: {content[:200]}") 
-                        await browser.close()
-                        return
-
-                    log("➡️ Link daal diya, Enter daba raha hoon...")
-                    await page.keyboard.press("Enter")
-                    
-                    # Wait for redirect
-                    log("⏳ Redirect ka intezaar...")
-                    await asyncio.sleep(10)
-                    
-                    # Check karo naya title kya hai
-                    new_title = await page.title()
-                    log(f"✅ Current Page Title: {new_title}")
-                    
-                    log("🛑 Holding 20s...")
-                    await asyncio.sleep(20)
-                    log("✅ Cycle Done!")
-                    
-                except Exception as e:
-                    log(f"⚠️ Page Error: {e}")
-                
-                await browser.close()
-        except Exception as e:
-            log(f"❌ Browser Crash Error: {e}")
-    else:
-        log("⚠️ Link fail.")
-
-# Wrapper for Thread
-def start_background_loop():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # 2. Link Pakne ka time (Waise ka waisa)
+    print("⏳ 1 Minute ka break (Link pakne do)...")
+    await asyncio.sleep(60) 
     
-    while True:
-        try:
-            loop.run_until_complete(run_bot_cycle())
-        except Exception as e:
-            log(f"❌ Loop Error: {e}")
+    # 3. Browser Start
+    print("\n🖥️ Playwright Browser start kar raha hoon...")
+    
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
             
-        log("💤 10s Rest...")
-        time.sleep(10)
+            # --- CHANGE: Random Proxy Pick ---
+            current_proxy = random.choice(PROXY_SITES)
+            print(f"🚀 Opening Proxy Website: {current_proxy}")
+            
+            try:
+                await page.goto(current_proxy, timeout=60000)
+                await page.wait_for_load_state("networkidle")
+                print("✅ Proxy Site Open ho gayi!")
+            except:
+                print("⚠️ Site load nahi hui, agle cycle mein try karenge.")
+                await browser.close()
+                return
 
-# --- PART 3: Server ---
-@app.route('/')
-def home():
-    return "Jasoos Bot Active Hai! Logs Check Karo. 🕵️‍♂️"
+            # --- SMART INPUT FINDER ---
+            # Hum tractor ko sikhayenge ki input box kahan-kahan ho sakta hai
+            # Common IDs: #url, #request, input[name='u'], input[name='d']
+            input_found = False
+            possible_selectors = ["#url", "#request", "input[name='u']", "input[name='d']", "input[name='q']", "#input-url"]
+            
+            for selector in possible_selectors:
+                if await page.locator(selector).count() > 0:
+                    print(f"🎯 Input box mil gaya: {selector}")
+                    await page.fill(selector, target_link)
+                    input_found = True
+                    break
+            
+            if not input_found:
+                print("⚠️ Input box nahi mila! (Format alag hai?)")
+                await browser.close()
+                return
+            
+            print("➡️ Link daal diya, Enter daba raha hoon...")
+            await page.keyboard.press("Enter")
+            
+            # --- CHANGE: Step 6 (Wait 20 Seconds) ---
+            print("🛑 Ab 20 Second hold karenge (Loading ke baad)...")
+            
+            # 4 baar x 5 sec = 20 Seconds
+            for i in range(4, 0, -1):
+                await asyncio.sleep(5)
+                try:
+                    title = await page.title()
+                    print(f"   ⏳ Running... ({i*5}s remaining) Title: {title}")
+                except:
+                    print(f"   ⏳ Running... ({i*5}s remaining)")
+            
+            print("\n🏁 Mission Complete (20s Over)!")
+            await browser.close()
+            print("🔒 Browser Band.")
+            
+    except Exception as e:
+        print(f"❌ Playwright Error: {e}")
 
-if __name__ == "__main__":
-    t = threading.Thread(target=start_background_loop)
-    t.start()
-    
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+# --- MAIN LOOP ---
+async def main_loop():
+    print("🚜 Smart Tractor (Multi-Khet Mode) Start! 🌾")
+    try:
+        while True:
+            await run_cycle()
+            print("\n💤 10 Second Rest (Cycle ke beech)...")
+            await asyncio.sleep(10)
+    except KeyboardInterrupt:
+        print("Stopped.")
+    except Exception as e:
+        print(f"Error in Loop: {e}")
 
+# Colab Start Command:
+await main_loop()
