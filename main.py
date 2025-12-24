@@ -14,8 +14,8 @@ app = Flask(__name__)
 # 🚜 TUMHARE LINKS (Jitne marzi daalo, par 3-4 hi rakhna load ke liye)
 TARGET_LINKS = [
     "https://shortxlinks.com/Q0gNBbrR",  
-    "https://shortxlinks.com/Q0gNBbrR",
-    "https://shortxlinks.com/Q0gNBbrR"
+    "https://shortxlinks.in/FhIBy",
+    "https://shortxlinks.com/s157"
 ]
 
 # --- SCOREBOARD (Stats) ---
