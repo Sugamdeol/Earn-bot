@@ -11,14 +11,21 @@ from urllib.parse import urlparse, parse_qs
 # --- CONFIGURATION ---
 app = Flask(__name__)
 
-# 🚜 YAHAN APNE SAARE LINKS DAALO
+# 🚜 TUMHARE LINKS (Jitne marzi daalo, par 3-4 hi rakhna load ke liye)
 TARGET_LINKS = [
-    "https://shortxlinks.com/Q0gNBbrR",  # Link 1
-    "https://shortxlinks.com/s157",  # Link 2 (Demo ke liye same rakha hai, alag kar lena)
-    "https://shortxlinks.in/FhIBy"   # Link 3
+    "https://shortxlinks.com/Q0gNBbrR",  
+    "https://shortxlinks.com/Q0gNBbrR",
+    "https://shortxlinks.com/Q0gNBbrR"
 ]
 
-# --- 🌍 THE ELITE LIST (Sirf Blockaway Family) ---
+# --- SCOREBOARD (Stats) ---
+STATS = {
+    "total_cycles": 0,
+    "success": 0,
+    "fail": 0
+}
+
+# --- 🌍 THE ELITE LIST (Proxy Family) ---
 MASTER_PROXY_LIST = [
     "https://www.blockaway.net",
     "https://www.croxyproxy.com",
@@ -31,7 +38,6 @@ MASTER_PROXY_LIST = [
     "https://www.video-proxy.net"
 ]
 
-# --- WORKING LIST ---
 ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
 random.shuffle(ACTIVE_PROXY_LIST)
 
@@ -39,7 +45,7 @@ random.shuffle(ACTIVE_PROXY_LIST)
 def log(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
 
-# --- PART 1: Token Logic (Har link ke liye alag) ---
+# --- PART 1: Token Logic (Sudhara hua) ---
 def get_final_link(base_url, link_id):
     try:
         log(f"[{link_id}] 🔍 Token dhoondh raha hoon...")
@@ -47,59 +53,68 @@ def get_final_link(base_url, link_id):
         r1 = requests.get(base_url, headers=headers, allow_redirects=False)
         
         if "location" not in r1.headers: 
+            log(f"[{link_id}] ❌ Redirect location nahi mili.")
             return None
+            
         meverge_url = r1.headers["location"]
         
+        # Token Parsing
         parsed = urlparse(meverge_url)
         query = parse_qs(parsed.query)
-        adlink_data = query["adlinkfly"][0]
-        token = adlink_data.split("Q0gNBbrR?")[1]
         
-        final = f"https://shortxlinks.com/Q0gNBbrR?{token}"
-        log(f"[{link_id}] ✅ Token Mil Gaya!")
-        return final
+        if "adlinkfly" in query:
+            adlink_data = query["adlinkfly"][0]
+            # Yahan assume kar rahe hain ki pattern wahi hai
+            if "?" in adlink_data:
+                token = adlink_data.split("?")[1] 
+                final = f"https://shortxlinks.com/Q0gNBbrR?{token}"
+                
+                # YEH RAHA FINAL LINK PRINT
+                log(f"[{link_id}] 🎯 FINAL LINK BANA: {final}")
+                return final
+            else:
+                log(f"[{link_id}] ❌ Token format match nahi hua.")
+                return None
+        else:
+            log(f"[{link_id}] ❌ 'adlinkfly' key nahi mili.")
+            return None
+            
     except Exception as e:
         log(f"[{link_id}] ❌ Token Error: {e}")
         return None
 
-# --- PART 2: Single Bot Logic (Ek sipahi ka kaam) ---
+# --- PART 2: Bot Logic (With 1 Minute Wait) ---
 async def process_one_link(link_id, url):
-    global ACTIVE_PROXY_LIST
+    global ACTIVE_PROXY_LIST, STATS
     
-    # Check agar list khali ho gayi
     if len(ACTIVE_PROXY_LIST) == 0:
-        log(f"[{link_id}] ⚠️ Proxy khatam! List reload kar raha hoon.")
         ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
         random.shuffle(ACTIVE_PROXY_LIST)
 
-    # Token nikalo
+    # 1. Token nikalo
     target_link = get_final_link(url, link_id)
     
     if not target_link:
-        log(f"[{link_id}] ⚠️ Skip kar raha hoon (Token failed).")
+        STATS["fail"] += 1
         return
 
-    # Random delay taaki saare browser bilkul ek second pe na khule (load bachega)
-    start_delay = random.randint(1, 10)
-    log(f"[{link_id}] ⏳ {start_delay}s ruk ke start karunga...")
-    await asyncio.sleep(start_delay)
+    # 2. THE BIG WAIT (1 Minute)
+    log(f"[{link_id}] ☕ Token mil gaya. Ab 60 Seconds ka 'Chai-Sutta' break...")
+    await asyncio.sleep(60)
+    log(f"[{link_id}] 🏃‍♂️ Break khatam! Browser start kar raha hoon.")
 
     try:
         async with async_playwright() as p:
-            # Browser Launch
             browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
             page = await browser.new_page()
             
-            # Proxy pick karo (Randomly pick kar rahe hain taaki race condition na ho)
             current_proxy = random.choice(ACTIVE_PROXY_LIST)
-            
-            log(f"[{link_id}] 🚀 Using Proxy: {current_proxy}")
+            log(f"[{link_id}] 🚀 Proxy: {current_proxy}")
             
             try:
                 await page.goto(current_proxy, timeout=60000)
                 await page.wait_for_load_state("domcontentloaded")
                 
-                # --- INPUT FINDER ---
                 input_found = False
                 selectors = ["#url", "#request", "input[name='url']", "#web_proxy_url", ".form-control"]
                 
@@ -111,63 +126,75 @@ async def process_one_link(link_id, url):
                         break
                 
                 if input_found:
-                    log(f"[{link_id}] ➡️ Link daal diya, Go!")
                     await page.keyboard.press("Enter")
                     
-                    # Wait for redirect
+                    # Redirect Wait
                     await asyncio.sleep(15)
                     new_title = await page.title()
-                    log(f"[{link_id}] ✅ Success! Page Title: {new_title}")
+                    log(f"[{link_id}] ✅ PASS! Title: {new_title}")
                     
-                    # Hold Connection
+                    STATS["success"] += 1
+                    
+                    # Connection Hold
                     log(f"[{link_id}] 🛑 Holding 20s...")
                     await asyncio.sleep(20)
                 else:
                     log(f"[{link_id}] ⚠️ Input box nahi mila.")
+                    STATS["fail"] += 1
                     
             except Exception as e:
-                log(f"[{link_id}] ❌ Error: {e}")
+                log(f"[{link_id}] ❌ Proxy/Page Error: {e}")
+                STATS["fail"] += 1
             
             await browser.close()
-            log(f"[{link_id}] 🏁 Mission Complete.")
 
     except Exception as e:
         log(f"[{link_id}] ❌ Browser Crash: {e}")
+        STATS["fail"] += 1
 
-# --- PART 3: The Manager (Sabko ek saath chalayega) ---
+# --- PART 3: Batch Manager ---
 async def run_batch_cycle():
-    log("\n--- 🎬 KA-BOOM! Starting Multi-Link Cycle ---")
+    STATS["total_cycles"] += 1
+    log(f"\n--- 🎬 CYCLE #{STATS['total_cycles']} START ---")
     
-    # Saare tasks banao
     tasks = []
     for index, link in enumerate(TARGET_LINKS):
-        # Har task ko ek ID de rahe hain: Link-1, Link-2...
         task = process_one_link(f"Link-{index+1}", link)
         tasks.append(task)
     
-    # Sabko ek saath run karo (Yeh hai asli magic!)
     await asyncio.gather(*tasks)
     
-    log("\n--- ✅ Cycle Finished (Sabka kaam ho gaya) ---")
+    # --- CYCLE STATS ---
+    log("\n--------------------------------")
+    log(f"📊 SCOREBOARD (Cycle #{STATS['total_cycles']})")
+    log(f"✅ PASS: {STATS['success']}")
+    log(f"❌ FAIL: {STATS['fail']}")
+    log("--------------------------------\n")
 
-# Wrapper for Thread
+# Wrapper
 def start_background_loop():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
     while True:
         try:
             loop.run_until_complete(run_batch_cycle())
         except Exception as e:
             log(f"❌ Loop Error: {e}")
-            
-        log("💤 30 Seconds Rest (Thoda saans le lo)...")
+        
+        log("💤 30 Seconds Rest...")
         time.sleep(30)
 
-# --- PART 4: Server ---
+# --- PART 4: Server with Stats ---
 @app.route('/')
 def home():
-    return f"Sugam's Multi-Bot is Running! Targets: {len(TARGET_LINKS)} 🚀"
+    # Web page pe bhi stats dikhenge
+    return f"""
+    <h1>🤖 Sugam's Elite Bot</h1>
+    <p><b>Total Cycles:</b> {STATS['total_cycles']}</p>
+    <p style="color:green;"><b>✅ Success:</b> {STATS['success']}</p>
+    <p style="color:red;"><b>❌ Failed:</b> {STATS['fail']}</p>
+    <p><i>Bot is running with 1-minute wait logic.</i></p>
+    """
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
@@ -175,3 +202,4 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
