@@ -12,24 +12,44 @@ from urllib.parse import urlparse, parse_qs
 app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- 🌍 THE GRAND PROXY LIST (15+ Sites) ---
-# Ab humare paas sites ki kami nahi hai!
+# --- 🌍 MEGA PROXY LIST (30+ Sites) ---
+# Ab pakadna namumkin hai!
 PROXY_SITES = [
+    # --- Croxy Family ---
     "https://www.croxyproxy.com",
-    "https://www.blockaway.net",
     "https://www.croxyproxy.rocks",
     "https://www.croxy.net",
     "https://www.croxy.org",
-    "https://www.youtubeunblocked.live",
     "https://www.croxyproxy.net",
+    # --- Blockaway Family ---
+    "https://www.blockaway.net",
     "https://www.hiload.org",
+    # --- Video Proxies ---
+    "https://www.youtubeunblocked.live",
     "https://www.video-proxy.net",
     "https://www.unblockvideos.com",
-    "https://www.proxysite.site",
     "https://www.youtubeproxy.org",
     "https://www.genmirror.com",
+    # --- Classic Proxies ---
+    "https://www.4everproxy.com",
+    "https://www.kproxy.com",
+    "https://www.filterbypass.me",
+    "https://www.proxysite.site",
     "https://www.proxysite.one",
-    "https://www.proxyium.com"
+    "https://www.proxyium.com",
+    "https://www.proxysite.cloud",
+    "https://www.zalmos.com",
+    "https://www.megaproxy.com",
+    "https://www.atozproxy.com",
+    # --- New/Random ---
+    "https://www.hidden.in",
+    "https://www.sitenable.com",
+    "https://www.sitenable.pw",
+    "https://www.sitenable.top",
+    "https://www.unblockmyweb.com",
+    "https://www.proxy-server.jp",
+    "https://www.wujie.net",
+    "https://www.ninjaproxy.pw"
 ]
 
 # --- HELPER: LOGGING ---
@@ -88,7 +108,7 @@ async def run_bot_cycle():
                 log(f"🚀 Aaj ki sawari: {selected_proxy}")
                 
                 try:
-                    await page.goto(selected_proxy, timeout=90000)
+                    await page.goto(selected_proxy, timeout=60000)
                     await page.wait_for_load_state("domcontentloaded")
                     
                     title = await page.title()
@@ -99,28 +119,39 @@ async def run_bot_cycle():
                     await browser.close()
                     return
 
-                # --- INPUT LOGIC (Sab sites cover karne ke liye) ---
+                # --- ADVANCED INPUT LOGIC (Har type ka lock kholne ki chabi) ---
                 try:
-                    # Alag-alag sites ke alag-alag ID hote hain, hum sab try karenge
                     input_found = False
                     
-                    # Try 1: ID = url (Common)
+                    # 1. ID Check (Sabse common)
                     if await page.locator("#url").count() > 0:
                         await page.fill("#url", target_link)
                         input_found = True
                         log("✅ Input Box '#url' mil gaya.")
                         
-                    # Try 2: ID = request (Blockaway style)
+                    # 2. Request ID (Blockaway)
                     elif await page.locator("#request").count() > 0:
                         await page.fill("#request", target_link)
                         input_found = True
                         log("✅ Input Box '#request' mil gaya.")
                         
-                    # Try 3: Name = url (Generic)
+                    # 3. Name = url (Generic)
                     elif await page.locator("input[name='url']").count() > 0:
                          await page.fill("input[name='url']", target_link)
                          input_found = True
                          log("✅ Input Box 'name=url' mil gaya.")
+
+                    # 4. Name = u (KProxy/4everproxy style)
+                    elif await page.locator("input[name='u']").count() > 0:
+                         await page.fill("input[name='u']", target_link)
+                         input_found = True
+                         log("✅ Input Box 'name=u' mil gaya.")
+
+                    # 5. Name = q (Old PHP Proxy style)
+                    elif await page.locator("input[name='q']").count() > 0:
+                         await page.fill("input[name='q']", target_link)
+                         input_found = True
+                         log("✅ Input Box 'name=q' mil gaya.")
                     
                     if not input_found:
                         log("⚠️ Input box nahi mila! Site ka design alag hai.")
@@ -168,7 +199,7 @@ def start_background_loop():
 # --- PART 3: Server ---
 @app.route('/')
 def home():
-    return "Bot is using 15+ Proxy Sites! 🚜💨"
+    return "Bot is running on 30+ Proxy Sites! 🌍"
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
@@ -176,4 +207,3 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
