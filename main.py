@@ -1,4 +1,3 @@
-
 import os
 import time
 import threading
@@ -13,53 +12,22 @@ from urllib.parse import urlparse, parse_qs
 app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- 🌍 THE GIGANTIC PROXY LIST (Master Copy) ---
-# Isko hum 'Master List' bolenge, ye kabhi change nahi hogi.
+# --- 🌍 THE ELITE LIST (Sirf Blockaway Family) ---
+# Sirf wo sites jo Blockaway jaisa same engine use karti hain.
 MASTER_PROXY_LIST = [
-    # --- The Giants (High Success) ---
-    "https://www.croxyproxy.com", "https://www.blockaway.net",
-    "https://www.croxyproxy.rocks", "https://www.youtubeproxy.org",
-    "https://www.croxy.net", "https://www.croxy.org",
-    "https://www.croxyproxy.net", "https://www.hiload.org",
-    "https://www.youtubeunblocked.live", "https://www.video-proxy.net",
-    
-    # --- The Generic Bunch ---
-    "https://www.unblockvideos.com", "https://www.genmirror.com",
-    "https://www.proxysite.site", "https://www.proxysite.one",
-    "https://www.proxyium.com", "https://www.proxysite.cloud",
-    "https://www.proxysite.video", "https://www.proxufy.com",
-    
-    # --- KProxy Family ---
-    "https://www.kproxy.com", "https://server2.kproxy.com",
-    "https://server3.kproxy.com", "https://server7.kproxy.com",
-    
-    # --- 4Ever & Hidester ---
-    "https://www.4everproxy.com", "https://www.hidester.com/proxy",
-    "https://www.filterbypass.me", "https://www.zalmos.com",
-    
-    # --- Old School PHP Proxies ---
-    "https://www.megaproxy.com", "https://www.atozproxy.com",
-    "https://www.justproxy.asia", "https://www.proxy-server.jp",
-    "https://www.unblockmyweb.com", "https://www.sitenable.com",
-    "https://www.sitenable.pw", "https://www.sitenable.top",
-    "https://www.sitenable.info", "https://www.files.schools.edu.rs",
-    
-    # --- Random/New ---
-    "https://www.wujie.net", "https://www.ninjaproxy.pw",
-    "https://www.proxysite.li", "https://www.proxysite.cc",
-    "https://www.unblock.club", "https://www.proxyportal.org",
-    "https://www.proxyportal.net", "https://www.proxysite.us",
-    "https://www.free-proxy.com", "https://www.sslproxy.com",
-    "https://www.proxofree.com", "https://www.hotspotshield.com/proxy",
-    "https://www.vpnbook.com/webproxy", "https://www.proxfree.com",
-    "https://www.hide.me/en/proxy", "https://www.privatix.com",
-    "https://www.tunnelbear.com", "https://www.windscribe.com",
-    "https://www.zoogvpn.com", "https://www.turbohide.org",
-    "https://www.zend2.com", "https://www.proxy.toolur.com"
+    "https://www.blockaway.net",        # Main Hero
+    "https://www.croxyproxy.com",       # Big Brother
+    "https://www.croxyproxy.rocks",
+    "https://www.croxy.net",
+    "https://www.croxy.org",
+    "https://www.croxyproxy.net",
+    "https://www.hiload.org",
+    "https://www.youtubeunblocked.live",
+    "https://www.video-proxy.net"
 ]
 
 # --- WORKING LIST ---
-# Hum is list ke saath khelhenge.
+# Is list mein se kharab sites nikalte jayenge
 ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
 random.shuffle(ACTIVE_PROXY_LIST)
 
@@ -92,11 +60,11 @@ def get_final_link():
 async def run_bot_cycle():
     global ACTIVE_PROXY_LIST
     
-    log("\n--- 🎬 New Cycle Start ---")
+    log("\n--- 🎬 New Cycle Start (Elite Mode) ---")
     
-    # Step 1: Check agar list khali ho gayi hai (sab fail ho gaye)
+    # Check agar list khali ho gayi
     if len(ACTIVE_PROXY_LIST) == 0:
-        log("⚠️ Are bhai! Saare proxies fail ho gaye. List RELOAD kar raha hoon Master se.")
+        log("⚠️ Saari Blockaway sites fail ho gayi? List RELOAD kar raha hoon!")
         ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
         random.shuffle(ACTIVE_PROXY_LIST)
 
@@ -114,26 +82,24 @@ async def run_bot_cycle():
                 browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
                 page = await browser.new_page()
                 
-                # --- SMART SELECTION LOGIC ---
-                # List se nikal liya, lekin wapas abhi nahi daalenge!
+                # --- LIST HANDLING ---
                 current_proxy = ACTIVE_PROXY_LIST.pop(0)
                 
-                log(f"🚀 Trying Proxy Site: {current_proxy}")
-                log(f"📉 Bachi hui sites in pool: {len(ACTIVE_PROXY_LIST)}")
+                log(f"🚀 Trying Elite Proxy: {current_proxy}")
+                log(f"📉 Sites left in pool: {len(ACTIVE_PROXY_LIST)}")
                 
-                proxy_is_working = False # Flag to track success
+                proxy_is_working = False 
                 
                 try:
                     await page.goto(current_proxy, timeout=60000)
                     await page.wait_for_load_state("domcontentloaded")
                     
-                    # --- UNIVERSAL INPUT FINDER ---
+                    # --- INPUT FINDER ---
                     input_found = False
                     
+                    # Blockaway family ke common selectors
                     selectors = [
                         "#url", "#request", "input[name='url']", 
-                        "input[name='u']", "input[name='q']", 
-                        "input[name='link']", "input[name='query']",
                         "#web_proxy_url", ".form-control"
                     ]
                     
@@ -146,10 +112,9 @@ async def run_bot_cycle():
                             break
                     
                     if not input_found:
-                        log("⚠️ Input box nahi mila. Ye site bekar hai.")
-                        # Yahan hum 'proxy_is_working' ko True NAHI karenge.
+                        log("⚠️ Input box nahi mila.")
                         await browser.close()
-                        return
+                        return # Working flag False hi rahega
 
                     log("➡️ Link daal diya, Go!")
                     await page.keyboard.press("Enter")
@@ -160,7 +125,6 @@ async def run_bot_cycle():
                     new_title = await page.title()
                     log(f"✅ Page Title: {new_title}")
                     
-                    # Agar yahan tak aa gaye, matlab site sahi hai!
                     proxy_is_working = True
                     
                     # --- HOLD TIME (20s) ---
@@ -174,9 +138,9 @@ async def run_bot_cycle():
                 # --- FINAL DECISION ---
                 if proxy_is_working:
                     ACTIVE_PROXY_LIST.append(current_proxy)
-                    log(f"🌟 Badhai ho! '{current_proxy}' kaam kar gayi. Wapas list mein daal diya.")
+                    log(f"🌟 '{current_proxy}' pass ho gayi. Wapas team mein aaja!")
                 else:
-                    log(f"🗑️ '{current_proxy}' ne dhokha diya. Isko list se PERMANENT hata diya.")
+                    log(f"🗑️ '{current_proxy}' fail ho gayi. Isko bahar nikalo.")
 
                 await browser.close()
         except Exception as e:
@@ -201,7 +165,7 @@ def start_background_loop():
 # --- PART 3: Server ---
 @app.route('/')
 def home():
-    return f"Bot Running! Active Working Proxies: {len(ACTIVE_PROXY_LIST)} 🚜"
+    return f"Blockaway Elite Bot Running! Active Sites: {len(ACTIVE_PROXY_LIST)} 🚀"
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
