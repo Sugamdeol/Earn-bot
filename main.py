@@ -1,3 +1,4 @@
+
 import os
 import time
 import threading
@@ -12,202 +13,199 @@ from urllib.parse import urlparse, parse_qs
 app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- 🌍 WEB PROXY LIST (For 2 Web Hits) ---
-WEB_PROXY_SITES = [
+# --- 🌍 THE GIGANTIC PROXY LIST (Master Copy) ---
+# Isko hum 'Master List' bolenge, ye kabhi change nahi hogi.
+MASTER_PROXY_LIST = [
+    # --- The Giants (High Success) ---
     "https://www.croxyproxy.com", "https://www.blockaway.net",
     "https://www.croxyproxy.rocks", "https://www.youtubeproxy.org",
     "https://www.croxy.net", "https://www.croxy.org",
-    "https://www.hiload.org", "https://www.youtubeunblocked.live",
+    "https://www.croxyproxy.net", "https://www.hiload.org",
+    "https://www.youtubeunblocked.live", "https://www.video-proxy.net",
+    
+    # --- The Generic Bunch ---
+    "https://www.unblockvideos.com", "https://www.genmirror.com",
     "https://www.proxysite.site", "https://www.proxysite.one",
     "https://www.proxyium.com", "https://www.proxysite.cloud",
-    "https://www.kproxy.com", "https://www.4everproxy.com",
+    "https://www.proxysite.video", "https://www.proxufy.com",
+    
+    # --- KProxy Family ---
+    "https://www.kproxy.com", "https://server2.kproxy.com",
+    "https://server3.kproxy.com", "https://server7.kproxy.com",
+    
+    # --- 4Ever & Hidester ---
+    "https://www.4everproxy.com", "https://www.hidester.com/proxy",
     "https://www.filterbypass.me", "https://www.zalmos.com",
-    "https://www.megaproxy.com", "https://www.atozproxy.com"
+    
+    # --- Old School PHP Proxies ---
+    "https://www.megaproxy.com", "https://www.atozproxy.com",
+    "https://www.justproxy.asia", "https://www.proxy-server.jp",
+    "https://www.unblockmyweb.com", "https://www.sitenable.com",
+    "https://www.sitenable.pw", "https://www.sitenable.top",
+    "https://www.sitenable.info", "https://www.files.schools.edu.rs",
+    
+    # --- Random/New ---
+    "https://www.wujie.net", "https://www.ninjaproxy.pw",
+    "https://www.proxysite.li", "https://www.proxysite.cc",
+    "https://www.unblock.club", "https://www.proxyportal.org",
+    "https://www.proxyportal.net", "https://www.proxysite.us",
+    "https://www.free-proxy.com", "https://www.sslproxy.com",
+    "https://www.proxofree.com", "https://www.hotspotshield.com/proxy",
+    "https://www.vpnbook.com/webproxy", "https://www.proxfree.com",
+    "https://www.hide.me/en/proxy", "https://www.privatix.com",
+    "https://www.tunnelbear.com", "https://www.windscribe.com",
+    "https://www.zoogvpn.com", "https://www.turbohide.org",
+    "https://www.zend2.com", "https://www.proxy.toolur.com"
 ]
-random.shuffle(WEB_PROXY_SITES)
 
-# --- 📡 DIRECT PROXY LIST (Will be filled by API) ---
-DIRECT_PROXIES = []
+# --- WORKING LIST ---
+# Hum is list ke saath khelhenge.
+ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
+random.shuffle(ACTIVE_PROXY_LIST)
 
 # --- HELPER: LOGGING ---
 def log(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
 
 # --- PART 1: Token Logic ---
-def get_fresh_token():
+def get_final_link():
     try:
+        log("🔍 Token dhoondh raha hoon...")
         headers = {'User-Agent': 'Mozilla/5.0'}
         r1 = requests.get(DEFAULT_URL, headers=headers, allow_redirects=False)
-        if "location" not in r1.headers: return None
+        
+        if "location" not in r1.headers: 
+            return None
         meverge_url = r1.headers["location"]
+        
         parsed = urlparse(meverge_url)
         query = parse_qs(parsed.query)
         adlink_data = query["adlinkfly"][0]
         token = adlink_data.split("Q0gNBbrR?")[1]
+        
         return f"https://shortxlinks.com/Q0gNBbrR?{token}"
-    except Exception:
+    except Exception as e:
+        log(f"❌ Token Error: {e}")
         return None
 
-# --- PART 2: Geonode API Fetcher ---
-def fetch_geonode_proxies():
-    global DIRECT_PROXIES
-    api_url = "https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc"
-    try:
-        log("📡 Fetching Fresh Proxies from Geonode API...")
-        r = requests.get(api_url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            new_proxies = []
-            for item in data.get("data", []):
-                ip = item["ip"]
-                port = item["port"]
-                protocols = item["protocols"]
-                
-                # Hum prefer karenge HTTP/HTTPS proxies
-                if "http" in protocols or "https" in protocols:
-                    proxy_str = f"http://{ip}:{port}"
-                    new_proxies.append(proxy_str)
-            
-            DIRECT_PROXIES = new_proxies
-            log(f"✅ Loaded {len(DIRECT_PROXIES)} fresh proxies from API.")
-        else:
-            log("❌ API Fail. Using old list if available.")
-    except Exception as e:
-        log(f"❌ API Error: {e}")
+# --- PART 2: Async Bot Logic ---
+async def run_bot_cycle():
+    global ACTIVE_PROXY_LIST
+    
+    log("\n--- 🎬 New Cycle Start ---")
+    
+    # Step 1: Check agar list khali ho gayi hai (sab fail ho gaye)
+    if len(ACTIVE_PROXY_LIST) == 0:
+        log("⚠️ Are bhai! Saare proxies fail ho gaye. List RELOAD kar raha hoon Master se.")
+        ACTIVE_PROXY_LIST = MASTER_PROXY_LIST.copy()
+        random.shuffle(ACTIVE_PROXY_LIST)
 
-# --- TASK A: Direct Hit (Using Geonode Proxy) ---
-async def task_direct_hit(browser, hit_id):
-    target_link = get_fresh_token()
-    if not target_link: return
-
-    # API wali list se proxy nikalo
-    if not DIRECT_PROXIES:
-        log(f"⚠️ [Worker {hit_id}] No Direct Proxies available!")
-        return
+    target_link = get_final_link()
+    
+    if target_link:
+        log(f"🔗 Target: {target_link}")
         
-    proxy_server = random.choice(DIRECT_PROXIES)
-    log(f"⚔️ [Worker {hit_id}] DIRECT HIT via {proxy_server}")
-
-    # Naya Context (Identity) banao specific proxy ke saath
-    try:
-        context = await browser.new_context(
-            proxy={"server": proxy_server},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        )
-        page = await context.new_page()
+        log(f"⏳ 60 Seconds ka break...")
+        await asyncio.sleep(60)
         
-        # Attack
+        log("🖥️ Starting Browser...")
         try:
-            await page.goto(target_link, timeout=45000) # 45s timeout for slow proxies
-            await page.wait_for_load_state("domcontentloaded")
-            
-            # Wait 20s
-            log(f"🛑 [Worker {hit_id}] Direct Hit Connected! Holding 20s...")
-            await asyncio.sleep(20)
-            
-            title = await page.title()
-            log(f"✅ [Worker {hit_id}] Direct Success! Title: {title}")
-            
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
+                page = await browser.new_page()
+                
+                # --- SMART SELECTION LOGIC ---
+                # List se nikal liya, lekin wapas abhi nahi daalenge!
+                current_proxy = ACTIVE_PROXY_LIST.pop(0)
+                
+                log(f"🚀 Trying Proxy Site: {current_proxy}")
+                log(f"📉 Bachi hui sites in pool: {len(ACTIVE_PROXY_LIST)}")
+                
+                proxy_is_working = False # Flag to track success
+                
+                try:
+                    await page.goto(current_proxy, timeout=60000)
+                    await page.wait_for_load_state("domcontentloaded")
+                    
+                    # --- UNIVERSAL INPUT FINDER ---
+                    input_found = False
+                    
+                    selectors = [
+                        "#url", "#request", "input[name='url']", 
+                        "input[name='u']", "input[name='q']", 
+                        "input[name='link']", "input[name='query']",
+                        "#web_proxy_url", ".form-control"
+                    ]
+                    
+                    for selector in selectors:
+                        if await page.locator(selector).count() > 0:
+                            await page.locator(selector).fill("") 
+                            await page.fill(selector, target_link)
+                            input_found = True
+                            log(f"✅ Input Box '{selector}' mil gaya.")
+                            break
+                    
+                    if not input_found:
+                        log("⚠️ Input box nahi mila. Ye site bekar hai.")
+                        # Yahan hum 'proxy_is_working' ko True NAHI karenge.
+                        await browser.close()
+                        return
+
+                    log("➡️ Link daal diya, Go!")
+                    await page.keyboard.press("Enter")
+                    
+                    log("⏳ Redirecting...")
+                    await asyncio.sleep(15)
+                    
+                    new_title = await page.title()
+                    log(f"✅ Page Title: {new_title}")
+                    
+                    # Agar yahan tak aa gaye, matlab site sahi hai!
+                    proxy_is_working = True
+                    
+                    # --- HOLD TIME (20s) ---
+                    log("🛑 Holding connection for 20 seconds...")
+                    await asyncio.sleep(20)
+                    log("✅ Cycle Complete!")
+                    
+                except Exception as e:
+                    log(f"❌ Site Error ({current_proxy}): {e}")
+                
+                # --- FINAL DECISION ---
+                if proxy_is_working:
+                    ACTIVE_PROXY_LIST.append(current_proxy)
+                    log(f"🌟 Badhai ho! '{current_proxy}' kaam kar gayi. Wapas list mein daal diya.")
+                else:
+                    log(f"🗑️ '{current_proxy}' ne dhokha diya. Isko list se PERMANENT hata diya.")
+
+                await browser.close()
         except Exception as e:
-            log(f"❌ [Worker {hit_id}] Direct Fail (Bad Proxy): {e}")
-            
-        await context.close()
-        
-    except Exception as e:
-        log(f"❌ [Worker {hit_id}] Context Error: {e}")
+            log(f"❌ Browser Crash: {e}")
+    else:
+        log("⚠️ Token nahi mila.")
 
-# --- TASK B: Web Proxy Hit (Using Croxy/Blockaway) ---
-async def task_web_hit(browser, hit_id):
-    target_link = get_fresh_token()
-    if not target_link: return
-
-    # Web Proxy List se uthao
-    web_proxy_url = random.choice(WEB_PROXY_SITES)
-    log(f"🛡️ [Worker {hit_id}] WEB HIT via {web_proxy_url}")
-    
-    # Isme Context ki zaroorat nahi, normal page chalega
-    # (Lekin concurrency ke liye naya page hi chahiye)
-    try:
-        page = await browser.new_page()
-        await page.goto(web_proxy_url, timeout=60000)
-        await page.wait_for_load_state("domcontentloaded")
-        
-        # Input Logic
-        input_found = False
-        selectors = ["#url", "#request", "input[name='url']", "input[name='u']", "#web_proxy_url"]
-        
-        for selector in selectors:
-            if await page.locator(selector).count() > 0:
-                await page.locator(selector).fill(target_link)
-                input_found = True
-                break
-        
-        if input_found:
-            await page.keyboard.press("Enter")
-            await asyncio.sleep(10) # Redirect wait
-            
-            log(f"🛑 [Worker {hit_id}] Web Hit Loaded! Holding 20s...")
-            await asyncio.sleep(20)
-            log(f"✅ [Worker {hit_id}] Web Success!")
-        else:
-            log(f"⚠️ [Worker {hit_id}] Input not found on {web_proxy_url}")
-            
-        await page.close()
-    except Exception as e:
-        log(f"❌ [Worker {hit_id}] Web Fail: {e}")
-
-# --- ORCHESTRATOR (Manager) ---
-async def run_hybrid_mode():
-    log("\n--- 🔥 HYBRID MODE STARTED ---")
-    
-    # Step 0: Proxies reload karo
-    fetch_geonode_proxies()
-    
-    log("⏳ 60 Seconds Break (System Cool-down)...")
-    await asyncio.sleep(60)
-    
-    log("🖥️ Launching Browser...")
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-            
-            # --- TASKS KA JADU ---
-            # 1 Direct Hit + 2 Web Hits = Total 3
-            tasks = [
-                task_direct_hit(browser, "A-Direct"), # Task 1
-                task_web_hit(browser, "B-Web"),       # Task 2
-                task_web_hit(browser, "C-Web")        # Task 3
-            ]
-            
-            log("🚀 Launching 1 Direct + 2 Web Attacks...")
-            await asyncio.gather(*tasks)
-            
-            log("🏁 Batch Complete!")
-            await browser.close()
-            
-    except Exception as e:
-        log(f"❌ Critical Error: {e}")
-
-# Wrapper Loop
+# Wrapper for Thread
 def start_background_loop():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
     while True:
         try:
-            loop.run_until_complete(run_hybrid_mode())
+            loop.run_until_complete(run_bot_cycle())
         except Exception as e:
             log(f"❌ Loop Error: {e}")
+            
         log("💤 10s Rest...")
         time.sleep(10)
 
-# --- SERVER ---
+# --- PART 3: Server ---
 @app.route('/')
 def home():
-    return "Hybrid Bot Active! (1 Direct + 2 Web) 🚜"
+    return f"Bot Running! Active Working Proxies: {len(ACTIVE_PROXY_LIST)} 🚜"
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
     t.start()
+    
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
