@@ -13,67 +13,46 @@ from urllib.parse import urlparse, parse_qs
 app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- 🌍 THE GIGANTIC PROXY LIST (60+ Unique Domains) ---
-# Ye list alag-alag IP pools use karti hai.
+# BEAST SETTING: Ek saath kitne tab kholne hain?
+# Render Free Plan ke liye 3 se zyada mat karna, crash ho jayega.
+CONCURRENT_HITS = 3 
+
+# --- 🌍 THE GIGANTIC PROXY LIST ---
 ALL_PROXY_SITES = [
-    # --- The Giants (High Success) ---
     "https://www.croxyproxy.com", "https://www.blockaway.net",
     "https://www.croxyproxy.rocks", "https://www.youtubeproxy.org",
     "https://www.croxy.net", "https://www.croxy.org",
     "https://www.croxyproxy.net", "https://www.hiload.org",
     "https://www.youtubeunblocked.live", "https://www.video-proxy.net",
-    
-    # --- The Generic Bunch ---
     "https://www.unblockvideos.com", "https://www.genmirror.com",
     "https://www.proxysite.site", "https://www.proxysite.one",
     "https://www.proxyium.com", "https://www.proxysite.cloud",
     "https://www.proxysite.video", "https://www.proxufy.com",
-    
-    # --- KProxy Family ---
     "https://www.kproxy.com", "https://server2.kproxy.com",
-    "https://server3.kproxy.com", "https://server7.kproxy.com",
-    
-    # --- 4Ever & Hidester ---
     "https://www.4everproxy.com", "https://www.hidester.com/proxy",
     "https://www.filterbypass.me", "https://www.zalmos.com",
-    
-    # --- Old School PHP Proxies ---
     "https://www.megaproxy.com", "https://www.atozproxy.com",
     "https://www.justproxy.asia", "https://www.proxy-server.jp",
     "https://www.unblockmyweb.com", "https://www.sitenable.com",
     "https://www.sitenable.pw", "https://www.sitenable.top",
-    "https://www.sitenable.info", "https://www.files.schools.edu.rs",
-    
-    # --- Random/New ---
     "https://www.wujie.net", "https://www.ninjaproxy.pw",
     "https://www.proxysite.li", "https://www.proxysite.cc",
     "https://www.unblock.club", "https://www.proxyportal.org",
-    "https://www.proxyportal.net", "https://www.proxysite.us",
-    "https://www.free-proxy.com", "https://www.sslproxy.com",
-    "https://www.proxofree.com", "https://www.hotspotshield.com/proxy",
-    "https://www.vpnbook.com/webproxy", "https://www.proxfree.com",
-    "https://www.hide.me/en/proxy", "https://www.privatix.com",
-    "https://www.tunnelbear.com", "https://www.windscribe.com",
-    "https://www.zoogvpn.com", "https://www.turbohide.org",
-    "https://www.zend2.com", "https://www.proxy.toolur.com"
+    "https://www.proxyportal.net", "https://www.proxysite.us"
 ]
-
-# Shuffle kar do taaki pattern na bane
 random.shuffle(ALL_PROXY_SITES)
 
 # --- HELPER: LOGGING ---
 def log(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
 
-# --- PART 1: Token Logic ---
-def get_final_link():
+# --- PART 1: Token Logic (Har hit ke liye naya token) ---
+def get_fresh_token():
     try:
-        log("🔍 Token dhoondh raha hoon...")
         headers = {'User-Agent': 'Mozilla/5.0'}
         r1 = requests.get(DEFAULT_URL, headers=headers, allow_redirects=False)
         
-        if "location" not in r1.headers: 
-            return None
+        if "location" not in r1.headers: return None
         meverge_url = r1.headers["location"]
         
         parsed = urlparse(meverge_url)
@@ -82,89 +61,91 @@ def get_final_link():
         token = adlink_data.split("Q0gNBbrR?")[1]
         
         return f"https://shortxlinks.com/Q0gNBbrR?{token}"
-    except Exception as e:
-        log(f"❌ Token Error: {e}")
+    except Exception:
         return None
 
-# --- PART 2: Async Bot Logic ---
-async def run_bot_cycle():
-    log("\n--- 🎬 New Cycle Start ---")
-    
-    target_link = get_final_link()
-    
-    if target_link:
-        log(f"🔗 Target: {target_link}")
-        
-        # 1 Minute Break
-        log(f"⏳ 60 Seconds ka break...")
-        await asyncio.sleep(60)
-        
-        log("🖥️ Starting Browser...")
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                
-                # --- SMART SELECTION LOGIC ---
-                # List se ek site nikalo aur usko list ke end mein bhej do
-                # Isse ensure hoga ki jab tak saari use nahi hoti, repetition nahi hoga
-                current_proxy = ALL_PROXY_SITES.pop(0)
-                ALL_PROXY_SITES.append(current_proxy) # Wapas peeche jod do
-                
-                log(f"🚀 Trying Proxy Site: {current_proxy}")
-                
-                try:
-                    await page.goto(current_proxy, timeout=60000)
-                    await page.wait_for_load_state("domcontentloaded")
-                    
-                    # --- UNIVERSAL INPUT FINDER (Har taale ki chabi) ---
-                    input_found = False
-                    
-                    # Hum loop mein saare common selectors check karenge
-                    selectors = [
-                        "#url", "#request", "input[name='url']", 
-                        "input[name='u']", "input[name='q']", 
-                        "input[name='link']", "input[name='query']",
-                        "#web_proxy_url", ".form-control"
-                    ]
-                    
-                    for selector in selectors:
-                        if await page.locator(selector).count() > 0:
-                            # Safai: Agar pehle se kuch likha hai to clear karo
-                            await page.locator(selector).fill("") 
-                            await page.fill(selector, target_link)
-                            input_found = True
-                            log(f"✅ Input Box '{selector}' mil gaya.")
-                            break
-                    
-                    if not input_found:
-                        log("⚠️ Input box nahi mila (Design change?). Skip kar rahe hain.")
-                        await browser.close()
-                        return
+# --- PART 2: Single Hit Logic (Ek Sipahi ka kaam) ---
+async def process_single_hit(browser, hit_id):
+    # Har worker apna khud ka token aur proxy lega
+    target_link = get_fresh_token()
+    if not target_link:
+        log(f"⚠️ [Worker {hit_id}] Token generate nahi hua.")
+        return
 
-                    log("➡️ Link daal diya, Go!")
-                    await page.keyboard.press("Enter")
-                    
-                    # Redirect wait
-                    log("⏳ Redirecting...")
-                    await asyncio.sleep(15)
-                    
-                    new_title = await page.title()
-                    log(f"✅ Page Title: {new_title}")
-                    
-                    # --- HOLD TIME (20s) ---
-                    log("🛑 Holding connection for 20 seconds...")
-                    await asyncio.sleep(20)
-                    log("✅ Cycle Complete!")
-                    
-                except Exception as e:
-                    log(f"❌ Site Error ({current_proxy}): {e}")
-                
-                await browser.close()
-        except Exception as e:
-            log(f"❌ Browser Crash: {e}")
-    else:
-        log("⚠️ Token nahi mila.")
+    # List se proxy nikalo aur peeche jod do (Rotation)
+    proxy_url = ALL_PROXY_SITES.pop(0)
+    ALL_PROXY_SITES.append(proxy_url)
+    
+    log(f"⚔️ [Worker {hit_id}] Target: ...{target_link[-10:]} | Via: {proxy_url}")
+    
+    page = await browser.new_page()
+    try:
+        await page.goto(proxy_url, timeout=60000)
+        await page.wait_for_load_state("domcontentloaded")
+        
+        # Input Logic
+        input_found = False
+        selectors = ["#url", "#request", "input[name='url']", "input[name='u']", "input[name='q']", "#web_proxy_url"]
+        
+        for selector in selectors:
+            if await page.locator(selector).count() > 0:
+                await page.locator(selector).fill("") 
+                await page.fill(selector, target_link)
+                input_found = True
+                break
+        
+        if not input_found:
+            log(f"⚠️ [Worker {hit_id}] Input box nahi mila on {proxy_url}")
+            await page.close()
+            return
+
+        await page.keyboard.press("Enter")
+        
+        # Redirect Wait
+        await asyncio.sleep(15)
+        
+        # Hold Logic (20s)
+        log(f"🛑 [Worker {hit_id}] Holding for 20s...")
+        await asyncio.sleep(20)
+        
+        title = await page.title()
+        log(f"✅ [Worker {hit_id}] Done! Title: {title}")
+        
+    except Exception as e:
+        log(f"❌ [Worker {hit_id}] Fail: {e}")
+    
+    await page.close()
+
+# --- PART 3: The Beast Orchestrator (Manager) ---
+async def run_beast_mode():
+    log("\n--- 🔥 BEAST MODE STARTED ---")
+    
+    # Wait at start
+    log("⏳ 60 Seconds ka break (System thanda karne ke liye)...")
+    await asyncio.sleep(60)
+    
+    log(f"🖥️ Launching Browser for {CONCURRENT_HITS} Simultaneous Hits...")
+    
+    try:
+        async with async_playwright() as p:
+            # Browser ek hi rahega, Tabs (Pages) alag alag honge memory bachane ke liye
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
+            
+            # Tasks ki list banao
+            tasks = []
+            for i in range(CONCURRENT_HITS):
+                # Har task ko ek ID de diya
+                tasks.append(process_single_hit(browser, i+1))
+            
+            # BOOM! Sabko ek saath run karo
+            log("🚀 Launching All Missiles...")
+            await asyncio.gather(*tasks)
+            
+            log("🏁 Batch Complete! Closing Browser.")
+            await browser.close()
+            
+    except Exception as e:
+        log(f"❌ Critical Error: {e}")
 
 # Wrapper for Thread
 def start_background_loop():
@@ -173,17 +154,17 @@ def start_background_loop():
     
     while True:
         try:
-            loop.run_until_complete(run_bot_cycle())
+            loop.run_until_complete(run_beast_mode())
         except Exception as e:
             log(f"❌ Loop Error: {e}")
             
         log("💤 10s Rest...")
         time.sleep(10)
 
-# --- PART 3: Server ---
+# --- PART 4: Server ---
 @app.route('/')
 def home():
-    return f"Bot Running! Pool Size: {len(ALL_PROXY_SITES)} sites. 🚜"
+    return f"Beast Mode Active! Hits per cycle: {CONCURRENT_HITS} 🦍"
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
