@@ -1,4 +1,3 @@
-
 import os
 import time
 import threading
@@ -13,13 +12,24 @@ from urllib.parse import urlparse, parse_qs
 app = Flask(__name__)
 DEFAULT_URL = "https://shortxlinks.com/Q0gNBbrR"
 
-# --- PROXY LIST (Dukaanon ki List) ---
-# Hum inme se har baar ek alag site pick karenge
+# --- 🌍 THE GRAND PROXY LIST (15+ Sites) ---
+# Ab humare paas sites ki kami nahi hai!
 PROXY_SITES = [
     "https://www.croxyproxy.com",
     "https://www.blockaway.net",
     "https://www.croxyproxy.rocks",
-    "https://www.youtubeproxy.org"
+    "https://www.croxy.net",
+    "https://www.croxy.org",
+    "https://www.youtubeunblocked.live",
+    "https://www.croxyproxy.net",
+    "https://www.hiload.org",
+    "https://www.video-proxy.net",
+    "https://www.unblockvideos.com",
+    "https://www.proxysite.site",
+    "https://www.youtubeproxy.org",
+    "https://www.genmirror.com",
+    "https://www.proxysite.one",
+    "https://www.proxyium.com"
 ]
 
 # --- HELPER: LOGGING ---
@@ -62,8 +72,8 @@ async def run_bot_cycle():
     if target_link:
         log(f"🔗 Target: {target_link}")
         
-        # Random Wait before start (10-60 sec)
-        wait_time = 60 # Aapne 1 min bola tha
+        # 1 Minute Break
+        wait_time = 60 
         log(f"⏳ {wait_time} Seconds ka break (Link pakne do)...")
         await asyncio.sleep(wait_time)
         
@@ -74,7 +84,6 @@ async def run_bot_cycle():
                 page = await browser.new_page()
                 
                 # --- ROTATION LOGIC ---
-                # List mein se koi ek random site uthao
                 selected_proxy = random.choice(PROXY_SITES)
                 log(f"🚀 Aaj ki sawari: {selected_proxy}")
                 
@@ -90,22 +99,31 @@ async def run_bot_cycle():
                     await browser.close()
                     return
 
-                # --- INPUT LOGIC (Sab sites ke liye common jugad) ---
+                # --- INPUT LOGIC (Sab sites cover karne ke liye) ---
                 try:
-                    # Zyada tar sites pe ID 'url' ya 'request' hi hoti hai
+                    # Alag-alag sites ke alag-alag ID hote hain, hum sab try karenge
+                    input_found = False
+                    
+                    # Try 1: ID = url (Common)
                     if await page.locator("#url").count() > 0:
                         await page.fill("#url", target_link)
+                        input_found = True
                         log("✅ Input Box '#url' mil gaya.")
+                        
+                    # Try 2: ID = request (Blockaway style)
                     elif await page.locator("#request").count() > 0:
                         await page.fill("#request", target_link)
+                        input_found = True
                         log("✅ Input Box '#request' mil gaya.")
+                        
+                    # Try 3: Name = url (Generic)
                     elif await page.locator("input[name='url']").count() > 0:
                          await page.fill("input[name='url']", target_link)
+                         input_found = True
                          log("✅ Input Box 'name=url' mil gaya.")
-                    else:
-                        log("⚠️ Input box nahi mila! HTML check kar raha hu...")
-                        content = await page.content()
-                        log(f"DEBUG HTML: {content[:200]}")
+                    
+                    if not input_found:
+                        log("⚠️ Input box nahi mila! Site ka design alag hai.")
                         await browser.close()
                         return
 
@@ -119,7 +137,7 @@ async def run_bot_cycle():
                     new_title = await page.title()
                     log(f"✅ Page Title: {new_title}")
                     
-                    # --- HOLD TIME (Updated to 20s) ---
+                    # --- HOLD TIME (20s) ---
                     log("🛑 Holding connection for 20 seconds...")
                     await asyncio.sleep(20)
                     log("✅ Cycle Complete!")
@@ -150,7 +168,7 @@ def start_background_loop():
 # --- PART 3: Server ---
 @app.route('/')
 def home():
-    return "Bot is Rotating Proxies! 🔄"
+    return "Bot is using 15+ Proxy Sites! 🚜💨"
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_background_loop)
@@ -158,3 +176,4 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
